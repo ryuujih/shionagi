@@ -1,0 +1,14 @@
+@import "tailwindcss";
+@theme { --font-sans: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif; --font-mono: "SFMono-Regular", Consolas, monospace; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #0c252e; }
+button { cursor: pointer; }
+canvas { display: block; }
+.title-jp { font-family: "Yu Mincho", "Hiragino Mincho ProN", serif; font-weight: 500; text-shadow: 0 4px 35px #142d3580; }
+.landing-vignette { background: linear-gradient(90deg, rgb(5 21 28 / .89) 0%, rgb(5 21 28 / .64) 29%, rgb(5 21 28 / .10) 62%, rgb(5 21 28 / .02) 100%), linear-gradient(0deg, rgb(5 21 28 / .8), transparent 30%, transparent 75%, rgb(5 21 28 / .3)); }
+.play-vignette { background: linear-gradient(0deg, rgb(5 21 28 / .45), transparent 20%, transparent 75%, rgb(5 21 28 / .4)); }
+.keycap { display: inline-block; border: 1px solid rgb(195 218 201 / .25); border-radius: 3px; padding: 3px 5px; font-size: 8px; line-height: 1; font-family: monospace; letter-spacing: .03em; }
+.touch-controls { display: none; touch-action: none; }
+@media (pointer: coarse) { .touch-controls { display: grid; } }
+@media (max-height: 740px) and (min-width: 768px) { .title-jp { font-size: 100px; } }
+@media (max-width: 640px) { .landing-vignette { background: linear-gradient(90deg, rgb(5 21 28 / .85), rgb(5 21 28 / .25)), linear-gradient(0deg, rgb(5 21 28 / .8), transparent 30%); } }
