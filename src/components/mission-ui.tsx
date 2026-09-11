@@ -16,7 +16,7 @@ export function MissionUI(p:Props){
     </div>}
     {p.active&&p.onFoot&&<>
       {s.feedback&&<div aria-hidden="true" className={`combat-flash combat-flash-${s.feedback} pointer-events-none absolute inset-0 z-10`}/>}
-      <div aria-hidden="true" className={`combat-reticle ${s.locked?'is-locked':''} feedback-${s.feedback??'none'} pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2"><i/><i/><i/><i/>{s.feedback==='emp'&&<span>×</span>}</div>
+      <div aria-hidden="true" className={`combat-reticle ${s.locked?'is-locked':''} feedback-${s.feedback??'none'} pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2`}><i/><i/><i/><i/>{s.feedback==='emp'&&<span>×</span>}</div>
       {(s.reloading||s.ammo===0)&&<div role="status" className="pointer-events-none absolute left-1/2 top-[56%] z-20 -translate-x-1/2 rounded border border-amber-200/70 bg-slate-950/90 px-4 py-2 text-xs font-bold tracking-widest text-amber-200">{s.reloading?'装填中…':'弾切れ · R 装填'}</div>}
     </>}
     <aside className="absolute right-5 top-28 z-20 w-64 rounded-md border border-amber-100/20 bg-[#101f31]/90 p-4 shadow-sm backdrop-blur-md md:right-10 md:w-72">
