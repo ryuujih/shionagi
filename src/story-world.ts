@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { MISSIONS, advanceCampaign, freshCampaign, parseCampaign, inMissionRange, rayBoxDistance, type CampaignProgress, type EndingChoice } from './campaign.ts';
 import { groundHeight } from './geography.ts';
 import { smoothAngle, type Collider } from './simulation.ts';
+import { buildRenAvatar, buildStationVisual } from './characters-look.ts';
 export type CombatFeedback='emp'|'damage'|'dodge'|'lock'|'reload';
 export type StorySnapshot={enabled:boolean;stage:number;choice:EndingChoice|null;hp:number;ammo:number;reloading:boolean;scan:number;kills:number;near:boolean;dialogue:boolean;down:boolean;locked:boolean;feedback:CombatFeedback|null;message:string;saveAvailable:boolean};
 export const EMPTY_STORY:StorySnapshot={enabled:false,stage:0,choice:null,hp:100,ammo:12,reloading:false,scan:0,kills:0,near:false,dialogue:false,down:false,locked:false,feedback:null,message:'',saveAvailable:true};
@@ -29,12 +30,10 @@ export class StoryWorld {
   private mat(color:string,glow=false){const key=color+glow;let m=this.materials.get(key);if(!m){m=new THREE.MeshStandardMaterial({color,roughness:.5,metalness:.25,emissive:glow?color:'#000000',emissiveIntensity:glow?2:0});this.materials.set(key,m);}return m;}
   private box(parent:THREE.Object3D,w:number,h:number,d:number,x:number,y:number,z:number,color:string,glow=false){const mesh=new THREE.Mesh(this.boxGeometry,this.mat(color,glow));mesh.scale.set(w,h,d);mesh.position.set(x,y,z);parent.add(mesh);return mesh;}
   private makeAvatar(){const g=this.avatar;
-    this.box(g,.55,.75,.36,0,1.12,0,'#376c78');this.box(g,.6,.2,.4,0,.77,0,'#233c4a');this.box(g,.34,.47,.18,0,1.25,.28,'#a58861');this.box(g,.38,.07,.05,0,1.3,-.2,'#8dffee',true);
-    const head=new THREE.Mesh(new THREE.SphereGeometry(.23,12,10),this.mat('#323e55'));head.position.y=1.74;g.add(head);this.box(g,.36,.09,.08,0,1.78,-.21,'#9affea',true);
-    for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.18,.73,0);this.box(leg,.19,.58,.23,0,-.3,0,'#273b50');this.box(leg,.23,.15,.4,0,-.64,-.07,'#1d2e3c');g.add(leg);this.legs.push(leg);const arm=new THREE.Group();arm.position.set(side*.36,1.43,0);this.box(arm,.17,.3,.2,0,-.15,0,'#416e7b');this.box(arm,.15,.28,.17,0,-.43,-.06,'#376c78');this.box(arm,.16,.12,.18,0,-.6,-.06,'#243c4a');g.add(arm);this.arms.push(arm);this.box(g,.13,.11,.08,side*.18,.4,-.15,'#658896');}
-    this.box(this.weapon,.2,.23,.75,.37,1.04,-.52,'#718c9c');this.box(this.weapon,.13,.11,.12,.37,1.07,-.95,'#8bfff0',true);g.add(this.weapon);this.scene.add(g);g.visible=false;
+    buildRenAvatar(g,(p,w,h,d,x,y,z,c,glow)=>this.box(p,w,h,d,x,y,z,c,glow),(c,glow)=>this.mat(c,glow),this.legs,this.arms,this.weapon);
+    this.scene.add(g);g.visible=false;
   }
-  private makeStations(){for(let i=0;i<MISSIONS.length;i++){const m=MISSIONS[i],g=new THREE.Group();g.position.set(m.x+2,groundHeight(m.z,m.x),m.z);if(i===0||i===5){this.box(g,.5,.8,.35,0,1.1,0,'#c99568');this.box(g,.38,.38,.38,0,1.73,0,'#c7a58a');for(const x of [-.16,.16])this.box(g,.17,.7,.2,x,.35,0,'#34495a');this.box(g,.5,.08,.4,0,1.95,0,'#b88353');}else{this.box(g,1,1.7,.6,0,.85,0,'#345268');this.box(g,.8,.8,.05,0,1.2,.33,'#89e9d8',true);this.box(g,.7,.1,.12,0,.65,.4,'#a6b5ae');}this.scene.add(g);g.visible=false;this.stations.push(g);}}
+  private makeStations(){for(let i=0;i<MISSIONS.length;i++){const m=MISSIONS[i],g=new THREE.Group();g.position.set(m.x+2,groundHeight(m.z,m.x),m.z);buildStationVisual(i,g,(p,w,h,d,x,y,z,c,glow)=>this.box(p,w,h,d,x,y,z,c,glow));this.scene.add(g);g.visible=false;this.stations.push(g);}}
   private makeEnemies(){for(let i=0;i<3;i++){const g=new THREE.Group();this.box(g,1.5,.45,.8,0,0,0,'#733f5c');this.box(g,.6,.16,.06,0,0,-.43,'#ff796f',true);for(const x of [-1,1]){const rotor=new THREE.Mesh(new THREE.TorusGeometry(.4,.08,8,16),this.mat('#f2b079',true));rotor.rotation.x=Math.PI/2;rotor.position.x=x;g.add(rotor);}this.scene.add(g);g.visible=false;this.enemies.push({model:g,hp:2,phase:i*2.1,charge:0,anchor:new THREE.Vector3(248+i*10,3.2+i*.6,263+(i%2)*7)});}}
   start(){if(!this.enabled){this.progress=this.cachedSave??freshCampaign();this.enabled=true;this.message='レン / 港の配達員 — 帰港灯のない夜';this.messageUntil=this.clock+6;this.resetFight();}return this.progress.stage;}
   explore(){this.enabled=false;this.dialogue=false;this.messageUntil=0;this.feedback=null;this.feedbackUntil=0;this.resetFight();this.traces.forEach(t=>{t.life=0;t.line.visible=false;});}
