@@ -92,7 +92,7 @@ test('船は島に乗り上げず、橋の中央のみ通航できる',()=>{
   assert.equal(findExit('boat',218,110,[]),null);
 });
 
-import { advanceCampaign, freshCampaign, parseCampaign, inMissionRange, rayBoxDistance } from './campaign.ts';
+import { advanceCampaign, freshCampaign, parseCampaign, inMissionRange, rayBoxDistance, choiceConfirmLine, chapterStatusLine, dialogueBody, homecomingBond, homecomingChip, CHOICE_LOG } from './campaign.ts';
 test('シナリオは順番を守って6任務を完了し、選択を保持する',()=>{
   let state=freshCampaign();assert.equal(advanceCampaign(state,'home'),state);
   for(const event of ['accept','core','relay','drones'] as const)state=advanceCampaign(state,event);
@@ -104,6 +104,20 @@ test('シナリオは順番を守って6任務を完了し、選択を保持す�
 test('破損した保存や不正なチェックポイントを復元しない',()=>{
   for(const raw of [null,'{','{}','{"version":1,"stage":99,"choice":null}','{"version":1,"stage":5,"choice":null}','{"version":1,"stage":0,"choice":"free"}'])assert.equal(parseCampaign(raw),null);
   assert.deepEqual(parseCampaign('{"version":1,"stage":3,"choice":null}'),{version:1,stage:3,choice:null});
+});
+test('Phase4a: 方針確認文と帰港分岐・ログ記録',()=>{
+  assert.equal(choiceConfirmLine('routes'),'航路だけ戻す——監視は残る');
+  assert.equal(choiceConfirmLine('free'),'監視網を切る——島は自分たちで守る');
+  assert.match(dialogueBody(5,'free'),/監視の赤い目も消えてる/);
+  assert.match(dialogueBody(5,'routes'),/監視の網は、まだ港に残ってる/);
+  assert.equal(homecomingChip('free'),'帰港灯再点灯');
+  assert.equal(homecomingChip('routes'),'監視網は残った');
+  assert.ok(homecomingBond('free'));assert.ok(homecomingBond('routes'));
+  assert.equal(chapterStatusLine(4,5,'routes'),CHOICE_LOG.routes);
+  assert.equal(chapterStatusLine(4,5,'free'),CHOICE_LOG.free);
+  assert.equal(chapterStatusLine(5,6,'free'),'完了 · 帰港灯再点灯');
+  assert.equal(chapterStatusLine(5,5,'free'),'港に戻ってナギに報告する');
+  assert.equal(chapterStatusLine(3,4,null),'完了');
 });
 test('任務操作は現地かつ地上にいる時に限る',()=>{
   assert.ok(inMissionRange(0,8,23,1.75,0));assert.equal(inMissionRange(0,8,23,30,0),false);assert.equal(inMissionRange(0,180,20,1.75,0),false);assert.equal(inMissionRange(6,8,23,1.75,0),false);
