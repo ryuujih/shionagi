@@ -19,7 +19,7 @@ export function parseCampaign(raw:string|null):CampaignProgress|null {
   if(!raw)return null;
   try{const value=JSON.parse(raw);if(value?.version!==1||!Number.isInteger(value.stage)||value.stage<0||value.stage>6)return null;if(value.choice!==null&&value.choice!=='free'&&value.choice!=='routes')return null;if((value.stage<5&&value.choice!==null)||(value.stage>=5&&value.choice===null))return null;return{version:1,stage:value.stage,choice:value.choice};}catch{return null;}
 }
-export function inMissionRange(stage:number,x:number,z:number,y:number,terrainHeight:number){const m=MISSIONS[stage];return Boolean(m)&&Math.hypot(m.x-x,m.z-z)<(m.kind==='combat'?40:6)&&Math.abs(y-terrainHeight-1.75)<3;}
+export function inMissionRange(stage:number,x:number,z:number,y:number,terrainHeight:number){const m=MISSIONS[stage];return Boolean(m)&&Math.hypot(m.x-x,m.z-z)<(m.kind==='combat'?42:7.5)&&Math.abs(y-terrainHeight-1.75)<3;}
 export type RayObstacle={x:number;z:number;w:number;d:number;bottom:number;top:number};
 export function rayBoxDistance(origin:{x:number;y:number;z:number},direction:{x:number;y:number;z:number},box:RayObstacle):number{
   let near=0,far=Infinity;
