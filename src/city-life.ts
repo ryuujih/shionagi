@@ -1,1 +1,1 @@
-@file:///tmp/MCP_city-life_ts.json
+export { CityLife } from './city-life-impl.ts';
