@@ -1,1 +1,1 @@
-file:///workspace/shionagi/src/city-life.ts
+/workspace/shionagi/src/city-life.ts
