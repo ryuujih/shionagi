@@ -33,3 +33,9 @@ canvas { display: block; }
 .combat-flash { animation: combat-feedback-in .18s ease-out both; }
 @keyframes combat-feedback-in { from { opacity: .25; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .combat-flash { animation: none; } }
+
+.explore-crosshair { width: 10px; height: 10px; border: 1px solid rgb(141 255 238 / .55); border-radius: 50%; box-shadow: 0 0 0 1px rgb(12 37 46 / .4); }
+.combat-reticle.is-combat { width: 44px; height: 44px; color: #99f6e4; filter: drop-shadow(0 0 3px #2dd4bf88); }
+.combat-reticle.is-combat i { display: block; }
+.mission-book { font-feature-settings: "palt"; }
+.mission-book article + article { margin-top: 0; }
