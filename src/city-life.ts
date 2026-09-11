@@ -1,1 +1,1 @@
-@/tmp/CITY_LIFE_CONTENT.txt
+file:///workspace/shionagi/src/city-life.ts
