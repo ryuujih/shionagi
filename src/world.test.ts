@@ -139,3 +139,25 @@ test('各車種の操舵は滑らかに入り、入力解除で戻る',()=>{
 test('30fpsと120fpsの直進距離が大きく変わらない',()=>{
   for(const vehicle of VEHICLES){const simulate=(fps:number)=>{let state:DriveState={x:0,z:vehicle.id==='boat'?150:0,y:vehicle.id==='air'?40:0,heading:0,speed:0};for(let i=0;i<fps*2;i++)state=stepDrive(state,vehicle,{throttle:1,steer:0,vertical:0,brake:false},1/fps,[]);return state;};assert.ok(Math.abs(simulate(30).z-simulate(120).z)<.25);}
 });
+
+
+import { SURFACE, ACCENT, HOUSE_PALETTE, harborDay, harborNight, NEON, harborMat, harborGlow } from './look.ts';
+test('Phase 1 look palette stays harbor-warm (teal/amber accents, no sterile cold base)', () => {
+  assert.equal(ACCENT.teal, '#8dffee');
+  assert.equal(ACCENT.amber, '#f5ca7f');
+  assert.equal(SURFACE.baseDeep, '#0c252e');
+  assert.equal(SURFACE.ground, '#2b494b');
+  assert.equal(SURFACE.wetGray, '#5d7470');
+  assert.equal(HOUSE_PALETTE.length, 6);
+  assert.equal(harborNight.fog, '#1a3a40');
+  assert.ok(harborDay.sunColor.startsWith('#f') || harborDay.sunColor.startsWith('#e') || harborDay.sunColor.startsWith('#d'));
+  assert.equal(NEON.pair(0), ACCENT.teal);
+  assert.equal(NEON.pair(1), ACCENT.amber);
+  const m = harborMat(SURFACE.wetGray);
+  assert.ok(m.roughness >= 0.7);
+  assert.ok(m.metalness <= 0.1);
+  m.dispose();
+  const g = harborGlow(ACCENT.amber, 1.3);
+  assert.ok(g.emissiveIntensity > 0);
+  g.dispose();
+});
