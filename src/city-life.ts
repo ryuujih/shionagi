@@ -1,1 +1,1 @@
-/workspace/shionagi/src/city-life.ts
+@file:///tmp/MCP_city-life_ts.json
