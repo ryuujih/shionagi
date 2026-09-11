@@ -1,6 +1,16 @@
+import { useEffect, useState } from 'react';
 import { Crosshair, Shield, X, ArrowRight, RotateCcw, BookOpen } from 'lucide-react';
 import { Button } from './ui/button';
-import { MISSIONS, type EndingChoice, type PortraitId } from '../campaign.ts';
+import {
+  MISSIONS,
+  choiceConfirmLine,
+  chapterStatusLine,
+  dialogueBody,
+  homecomingBond,
+  homecomingChip,
+  type EndingChoice,
+  type PortraitId,
+} from '../campaign.ts';
 import type { StorySnapshot } from '../story-world.ts';
 
 function FacePanel({id,name}:{id:PortraitId;name:string}){
@@ -23,6 +33,14 @@ export function MissionUI(p:Props){
   const combat=!!mission&&mission.kind==='combat'&&p.active&&p.onFoot&&!s.dialogue&&!s.down;
   const talking=s.dialogue;
   const dim=talking?'opacity-25 pointer-events-none':'';
+  const [pendingChoice,setPendingChoice]=useState<EndingChoice|null>(null);
+
+  // Clear pending confirm when leaving dialogue / changing stage
+  useEffect(()=>{if(!talking||!mission||mission.kind!=='choice')setPendingChoice(null);},[talking,mission,s.stage]);
+
+  const body=mission?dialogueBody(s.stage,s.choice):'';
+  const bond=mission?.event==='home'?homecomingBond(s.choice):null;
+  const chip=mission?.event==='home'?homecomingChip(s.choice):null;
 
   return <>
     {/* Explore chip — always on when mission active; PR#1 heading/distance wiring kept */}
@@ -60,7 +78,7 @@ export function MissionUI(p:Props){
 
     {s.message&&p.active&&!talking&&<div role="status" className="pointer-events-none absolute bottom-24 left-1/2 z-20 w-[min(80vw,400px)] -translate-x-1/2 rounded-md border border-teal-100/15 bg-[#0c252e]/92 px-4 py-3 text-xs leading-6 text-teal-50/90 shadow-sm">{s.message}</div>}
 
-    {/* Mission log — book tone: chapters + whitespace */}
+    {/* Mission log — book tone: chapters + whitespace; records network choice */}
     {p.open&&<div className="absolute inset-0 z-40 flex items-center justify-center bg-[#051321]/80 p-5 backdrop-blur-md">
       <section className="mission-book max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-sm border border-[#c99568]/25 bg-[#102435] px-8 py-10 shadow-xl sm:px-12">
         <div className="flex justify-between gap-4">
@@ -75,7 +93,7 @@ export function MissionUI(p:Props){
           {MISSIONS.map((m,i)=><article key={m.event} className={`${i===s.stage?'':i<s.stage?'opacity-50':'opacity-30'}`}>
             <p className="font-serif text-[9px] tracking-[.28em] text-[#c99568]/70">CHAPTER {String(i+1).padStart(2,'0')}</p>
             <h3 className="mt-2 text-sm tracking-wider text-[#eef3e9]">{m.title}</h3>
-            <p className="mt-2 text-[10px] leading-6 text-white/50">{i<s.stage?'完了':i===s.stage?m.task:'—'}</p>
+            <p className="mt-2 text-[10px] leading-6 text-white/50">{chapterStatusLine(i,s.stage,s.choice)}</p>
           </article>)}
         </div>
         <p className="mt-10 text-[10px] leading-6 text-white/40">{s.saveAvailable?'ミッション完了時に自動保存。':'このブラウザでは保存できません。'}</p>
@@ -91,9 +109,19 @@ export function MissionUI(p:Props){
         <div className="min-w-0 flex-1">
           <p className="text-[10px] tracking-[.18em] text-teal-200/80">{mission.roleTitle}</p>
           <h2 className="mt-2 text-xl tracking-wider">{mission.title}</h2>
-          <p className="mt-3 text-sm leading-8 text-white/85">{mission.text}</p>
+          {bond&&<p className="mt-1.5 text-[11px] leading-5 tracking-wide text-[#c99568]/90">{bond}</p>}
+          {chip&&<p className="mt-2 inline-flex rounded-full border border-amber-200/35 bg-amber-200/10 px-2.5 py-0.5 font-mono text-[10px] tracking-wider text-amber-100">{chip}</p>}
+          <p className="mt-3 text-sm leading-8 text-white/85">{body}</p>
           {mission.kind==='choice'
-            ? <div className="mt-5 grid gap-3 sm:grid-cols-2"><Button onClick={()=>p.onConfirm('free')}>監視網を切り離す</Button><Button variant="outline" onClick={()=>p.onConfirm('routes')}>航路だけ復旧する</Button></div>
+            ? pendingChoice
+              ? <div className="mt-5 space-y-3">
+                  <p role="status" className="rounded-md border border-teal-100/20 bg-[#0c252e]/70 px-3 py-2.5 text-sm leading-7 tracking-wide text-teal-50">{choiceConfirmLine(pendingChoice)}</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Button variant="outline" onClick={()=>setPendingChoice(null)}>選び直す</Button>
+                    <Button onClick={()=>{const c=pendingChoice;setPendingChoice(null);p.onConfirm(c);}}>この方針でつづける<ArrowRight size={16}/></Button>
+                  </div>
+                </div>
+              : <div className="mt-5 grid gap-3 sm:grid-cols-2"><Button onClick={()=>setPendingChoice('free')}>監視網を切り離す</Button><Button variant="outline" onClick={()=>setPendingChoice('routes')}>航路だけ復旧する</Button></div>
             : <Button className="mt-5 w-full" onClick={()=>p.onConfirm()}>{mission.action}<ArrowRight size={16}/></Button>}
         </div>
       </section>
