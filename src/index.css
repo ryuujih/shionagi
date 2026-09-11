@@ -12,3 +12,30 @@ canvas { display: block; }
 @media (pointer: coarse) { .touch-controls { display: grid; } }
 @media (max-height: 740px) and (min-width: 768px) { .title-jp { font-size: 100px; } }
 @media (max-width: 640px) { .landing-vignette { background: linear-gradient(90deg, rgb(5 21 28 / .85), rgb(5 21 28 / .25)), linear-gradient(0deg, rgb(5 21 28 / .8), transparent 30%); } }
+
+.combat-flash-emp { background: radial-gradient(ellipse, #5effdb24, transparent 65%); box-shadow: inset 0 0 100px #5effdb40; }
+.combat-flash-damage { background: radial-gradient(ellipse, transparent 35%, #fb71856b); box-shadow: inset 0 0 90px #e11d4866; }
+.combat-flash-dodge { box-shadow: inset 0 0 45px #cffafeaa, inset 0 0 8px white; }
+.combat-flash-lock { background: radial-gradient(circle, #fcd34d18, transparent 25%); }
+.combat-flash-reload { box-shadow: inset 0 -45px 80px -50px #fcd34d; }
+.combat-reticle { width: 38px; height: 38px; color: #99f6e4; }
+.combat-reticle i { display: none; position: absolute; width: 10px; height: 10px; border-color: currentColor; }
+.combat-reticle.is-locked { color: #fcd38b; width: 48px; height: 48px; filter: drop-shadow(0 0 4px #5eead4); }
+.combat-reticle.is-locked i, .combat-reticle.feedback-lock i { display: block; }
+.combat-reticle i:nth-child(1) { top: 0; left: 0; border-top: 2px solid; border-left: 2px solid; }
+.combat-reticle i:nth-child(2) { top: 0; right: 0; border-top: 2px solid; border-right: 2px solid; }
+.combat-reticle i:nth-child(3) { bottom: 0; left: 0; border-bottom: 2px solid; border-left: 2px solid; }
+.combat-reticle i:nth-child(4) { bottom: 0; right: 0; border-bottom: 2px solid; border-right: 2px solid; }
+.combat-reticle span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 32px; color: #99f6e4; text-shadow: 0 0 8px #2dd4bf; }
+.combat-reticle.feedback-damage { border: 2px solid #fda4af; border-radius: 50%; }
+.combat-reticle.feedback-dodge { border-left: 3px solid #cffafe; border-right: 3px solid #cffafe; border-radius: 50%; }
+.combat-reticle.feedback-reload { border: 2px dashed #fcd38b; border-radius: 50%; }
+.combat-flash { animation: combat-feedback-in .18s ease-out both; }
+@keyframes combat-feedback-in { from { opacity: .25; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .combat-flash { animation: none; } }
+
+.explore-crosshair { width: 10px; height: 10px; border: 1px solid rgb(141 255 238 / .55); border-radius: 50%; box-shadow: 0 0 0 1px rgb(12 37 46 / .4); }
+.combat-reticle.is-combat { width: 44px; height: 44px; color: #99f6e4; filter: drop-shadow(0 0 3px #2dd4bf88); }
+.combat-reticle.is-combat i { display: block; }
+.mission-book { font-feature-settings: "palt"; }
+.mission-book article + article { margin-top: 0; }
