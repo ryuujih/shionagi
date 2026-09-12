@@ -6,8 +6,8 @@ import { buildRenAvatar, buildStationVisual } from './characters-look.ts';
 import { harborCachedMat } from './look.ts';
 import { wantArmed, stepAimBlend, sampleArmingPose } from './avatar-arming.ts';
 export type CombatFeedback='emp'|'damage'|'dodge'|'lock'|'reload';
-export type StorySnapshot={enabled:boolean;stage:number;choice:EndingChoice|null;hp:number;ammo:number;reloading:boolean;scan:number;kills:number;near:boolean;dialogue:boolean;down:boolean;locked:boolean;feedback:CombatFeedback|null;message:string;saveAvailable:boolean};
-export const EMPTY_STORY:StorySnapshot={enabled:false,stage:0,choice:null,hp:100,ammo:12,reloading:false,scan:0,kills:0,near:false,dialogue:false,down:false,locked:false,feedback:null,message:'',saveAvailable:true};
+export type StorySnapshot={enabled:boolean;stage:number;choice:EndingChoice|null;hp:number;ammo:number;reloading:boolean;scan:number;kills:number;near:boolean;dialogue:boolean;down:boolean;locked:boolean;feedback:CombatFeedback|null;message:string;saveAvailable:boolean;combatMode:boolean;aimBlend:number};
+export const EMPTY_STORY:StorySnapshot={enabled:false,stage:0,choice:null,hp:100,ammo:12,reloading:false,scan:0,kills:0,near:false,dialogue:false,down:false,locked:false,feedback:null,message:'',saveAvailable:true,combatMode:false,aimBlend:0};
 type Enemy={model:THREE.Group;hp:number;phase:number;charge:number;anchor:THREE.Vector3};
 type Bolt={mesh:THREE.Mesh;velocity:THREE.Vector3;life:number};
 export class StoryWorld {
@@ -20,7 +20,7 @@ export class StoryWorld {
   private message='';private messageUntil=0;private saveAvailable=true;private feedback:CombatFeedback|null=null;private feedbackUntil=0;
   readonly avatar=new THREE.Group();private legs:THREE.Group[]=[];private arms:THREE.Group[]=[];private stride=0;private gait=0;private weapon=new THREE.Group();
   private boxGeometry=new THREE.BoxGeometry(1,1,1);
-  private aimBlend=0;private weaponRecoil=0;
+  aimBlend=0;private weaponRecoil=0;private lastOnFoot=true;private lastPlaying=false;
   private materials=new Map<string,THREE.Material>();
   private cachedSave:CampaignProgress|null=null;
   constructor(private scene:THREE.Scene,private colliders:Collider[]){
@@ -46,7 +46,7 @@ export class StoryWorld {
   confirm(choice?:EndingChoice){if(!this.dialogue)return;const before=this.progress.stage;this.finish(choice);if(this.progress.stage!==before)this.dialogue=false;}
   private near(pos:THREE.Vector3){return inMissionRange(this.progress.stage,pos.x,pos.z,pos.y,groundHeight(pos.z,pos.x));}
   private cue(kind:CombatFeedback,ms=450){this.feedback=kind;this.feedbackUntil=Date.now()+ms;}
-  snapshot(pos:THREE.Vector3):StorySnapshot{return{enabled:this.enabled,stage:this.progress.stage,choice:this.progress.choice,hp:Math.ceil(this.hp),ammo:this.ammo,reloading:this.reloadTime>0,scan:this.scan/1.8,kills:this.enemies.filter(e=>e.hp===0).length,near:this.near(pos),dialogue:this.dialogue,down:this.down,locked:!!this.locked,feedback:Date.now()<this.feedbackUntil?this.feedback:null,message:this.clock<this.messageUntil?this.message:'',saveAvailable:this.saveAvailable};}
+  snapshot(pos:THREE.Vector3):StorySnapshot{const near=this.near(pos);const combatMode=this.lastPlaying&&wantArmed({enabled:this.enabled,dialogue:this.dialogue,down:this.down,onFoot:this.lastOnFoot,stage:this.progress.stage,near});return{enabled:this.enabled,stage:this.progress.stage,choice:this.progress.choice,hp:Math.ceil(this.hp),ammo:this.ammo,reloading:this.reloadTime>0,scan:this.scan/1.8,kills:this.enemies.filter(e=>e.hp===0).length,near,dialogue:this.dialogue,down:this.down,locked:!!this.locked,feedback:Date.now()<this.feedbackUntil?this.feedback:null,message:this.clock<this.messageUntil?this.message:'',saveAvailable:this.saveAvailable,combatMode,aimBlend:this.aimBlend;}
   clearLock(){this.locked=null;}
   target(){return this.locked?.hp?this.locked.model.position:null;}
   toggleLock(pos:THREE.Vector3){if(this.locked){this.locked=null;return;}this.locked=this.enemies.filter(e=>e.hp>0&&e.model.visible&&e.model.position.distanceTo(pos)<65&&this.clearLine(pos,e.model.position)).sort((a,b)=>a.model.position.distanceToSquared(pos)-b.model.position.distanceToSquared(pos))[0]??null;if(this.locked)this.cue('lock');}
@@ -75,6 +75,8 @@ export class StoryWorld {
     this.avatar.rotation.y=smoothAngle(this.avatar.rotation.y,heading,dt,12);
     this.legs.forEach((leg,i)=>leg.rotation.x=Math.sin(this.stride)*(i?-.58:.58)*this.gait);
     // Keep transitions running through dialogue, boarding, and disabled/explore states.
+    // One combat-mode gate drives EMP + published snapshot (HUD/camera consumers).
+    this.lastOnFoot=onFoot;this.lastPlaying=playing;
     const armed=playing&&wantArmed({enabled:this.enabled,dialogue:this.dialogue,down:this.down,onFoot,stage:this.progress.stage,near:this.near(pos)});
     this.aimBlend=stepAimBlend(this.aimBlend,armed,dt);
     const pose=sampleArmingPose(this.aimBlend);
