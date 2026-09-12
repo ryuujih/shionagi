@@ -27,36 +27,53 @@ export function canDrive(kind: VehicleKind, x: number, z: number, y: number, obs
   return !obstacles.some(c=>Math.abs(x-c.x)<c.w/2+radius && Math.abs(z-c.z)<c.d/2+radius);
 }
 export type DriveState={x:number;y:number;z:number;heading:number;speed:number;steering?:number};
+/** Soft exit gate: leftover crawl must not soft-lock dismount. */
+export function exitSpeedOk(speed:number, limit=2.2){return Math.abs(speed)<=limit;}
 export function stepDrive(state:DriveState, vehicle:VehicleDefinition, input:{throttle:number;steer:number;vertical:number;brake:boolean}, dt:number, obstacles:Collider[]):DriveState {
   dt=Number.isFinite(dt)?Math.max(0,Math.min(dt,.05)):0;
-  if(dt===0)return {...state};
+  if(dt===0)return {...state,steering:state.steering??0};
   input={throttle:Math.max(-1,Math.min(1,input.throttle||0)),steer:Math.max(-1,Math.min(1,input.steer||0)),vertical:Math.max(-1,Math.min(1,input.vertical||0)),brake:input.brake};
-  const target=input.brake?0:input.throttle*vehicle.maxSpeed*(input.throttle<0?.35:1);
-  const coast=vehicle.id==='truck'?1.3:vehicle.id==='boat'?.65:vehicle.id==='air'?.85:1.4;
-  const acceleration=(input.brake?vehicle.acceleration*4.5:input.throttle===0?vehicle.acceleration*coast:vehicle.acceleration)*dt;
+  const target=input.brake?0:input.throttle*vehicle.maxSpeed*(input.throttle<0?.4:1);
+  // Predictive accel/brake: brake bites harder; coast sheds speed quickly; throttle reaches intent fast.
+  const coast=vehicle.id==='truck'?2.2:vehicle.id==='boat'?1.35:vehicle.id==='air'?1.55:2.4;
+  const accelMul=input.brake?7.2:input.throttle===0?coast:1.85;
+  const acceleration=vehicle.acceleration*accelMul*dt;
   let speed=state.speed+Math.max(-acceleration,Math.min(acceleration,target-state.speed));
-  const steerRate=vehicle.id==='bike'?11:vehicle.id==='truck'?5:vehicle.id==='boat'?4.6:8;
+  if(input.brake&&Math.abs(speed)<.08)speed=0;
+  if(!input.brake&&input.throttle===0&&Math.abs(speed)<.04)speed=0;
+  const steerRate=vehicle.id==='bike'?16:vehicle.id==='truck'?8:vehicle.id==='boat'?7.5:12;
   let steering=(state.steering??0)+(input.steer-(state.steering??0))*(1-Math.exp(-dt*steerRate));
-  const grip=vehicle.id==='boat'?.72:vehicle.id==='truck'?.62:vehicle.id==='air'?.4:.28;
-  const heading=state.heading-steering*vehicle.turnRate*dt*Math.min(1,Math.abs(speed)/2)/(1+Math.abs(speed)/vehicle.maxSpeed*grip)*(speed<0?-1:1);
+  if(input.steer===0&&Math.abs(steering)<.02)steering=0;
+  const grip=vehicle.id==='boat'?.55:vehicle.id==='truck'?.48:vehicle.id==='air'?.32:.22;
+  const heading=state.heading-steering*vehicle.turnRate*dt*Math.min(1,Math.abs(speed)/1.4)/(1+Math.abs(speed)/vehicle.maxSpeed*grip)*(speed<0?-1:1);
   let x=state.x,z=state.z,y=state.y;
   if(vehicle.id==='air') {
-    const nextY=Math.max(groundHeight(z,x)+2.2,Math.min(74,state.y+input.vertical*11*dt));
+    const nextY=Math.max(groundHeight(z,x)+2.2,Math.min(74,state.y+input.vertical*14*dt));
     if(canDrive('air',x,z,nextY,obstacles))y=nextY;
   }
   const nx=x-Math.sin(heading)*speed*dt,nz=z-Math.cos(heading)*speed*dt;
   const nextY=vehicle.id==='air'?Math.max(y,groundHeight(nz,nx)+2.2):vehicle.id==='boat'?.0:groundHeight(nz,nx);
-  if(canDrive(vehicle.id,nx,nz,nextY,obstacles)){x=nx;z=nz;y=nextY;}else {speed=0;steering*=Math.exp(-dt*24);}
+  if(canDrive(vehicle.id,nx,nz,nextY,obstacles)){x=nx;z=nz;y=nextY;}
+  else {
+    // Wall hit: kill speed and clear steering so next input predicts the free move (no stuck steer).
+    speed=0;steering=0;
+  }
   return {x,y,z,heading,speed,steering};
 }
 export function findExit(kind:VehicleKind, x:number,z:number,obstacles:Collider[]):{x:number;z:number}|null {
-  // 水上からの降車は、近くに歩ける岸・桟橋がある時だけ許可する。
-  const radii=kind==='boat'?[5,7,8]:[2.8,4,5];
-  for(const radius of radii)for(let i=0;i<16;i++){
-    const nx=x+Math.cos(i*Math.PI/8)*radius,nz=z+Math.sin(i*Math.PI/8)*radius;
-    if(canWalk(nx,nz,obstacles)&&(kind!=='boat'||groundHeight(nz,nx)<1))return {x:nx,z:nz};
+  // Wider/denser shore search so leftover distance near piers does not soft-lock exit.
+  const radii=kind==='boat'?[4,5,6,7,8,10,12,14,16]:[2.4,2.8,3.5,4.5,5.5,7];
+  const steps=kind==='boat'?24:20;
+  let best:{x:number;z:number;d:number}|null=null;
+  for(const radius of radii)for(let i=0;i<steps;i++){
+    const ang=i*(Math.PI*2)/steps;
+    const nx=x+Math.cos(ang)*radius,nz=z+Math.sin(ang)*radius;
+    if(canWalk(nx,nz,obstacles)&&(kind!=='boat'||groundHeight(nz,nx)<1)){
+      const d=Math.hypot(nx-x,nz-z);
+      if(!best||d<best.d)best={x:nx,z:nz,d};
+    }
   }
-  return null;
+  return best?{x:best.x,z:best.z}:null;
 }
 export type RoutePoint=readonly [number,number];
 export function routeLengths(route:readonly RoutePoint[]):number[]{
@@ -75,9 +92,40 @@ export function smoothAngle(current:number,target:number,dt:number,rate=10){
   const delta=Math.atan2(Math.sin(target-current),Math.cos(target-current));
   return current+delta*(1-Math.exp(-Math.max(0,dt)*rate));
 }
+/** Predictive foot velocity: input direction wins within ~1 beat; release stops short. */
 export function stepFoot(velocity:{x:number;z:number},forward:number,right:number,yaw:number,speed:number,dt:number){
   const length=Math.max(1,Math.hypot(forward,right));forward/=length;right/=length;
-  const blend=1-Math.exp(-Math.max(0,Math.min(dt,.05))*(forward||right?14:22));
+  const hasInput=!!(forward||right);
+  const blend=1-Math.exp(-Math.max(0,Math.min(dt,.05))*(hasInput?32:48));
   const x=(-Math.sin(yaw)*forward+Math.cos(yaw)*right)*speed,z=(-Math.cos(yaw)*forward-Math.sin(yaw)*right)*speed;
-  return {x:velocity.x+(x-velocity.x)*blend,z:velocity.z+(z-velocity.z)*blend};
+  const next={x:velocity.x+(x-velocity.x)*blend,z:velocity.z+(z-velocity.z)*blend};
+  if(!hasInput&&Math.hypot(next.x,next.z)<.05)return {x:0,z:0};
+  return next;
+}
+export type FootResolve={x:number;z:number;vx:number;vz:number};
+/**
+ * Axis-separated walk resolution: blocked axes drop velocity (no wall stick/slide),
+ * corners get micro-nudges; release clears residual so steps/corners don't trap.
+ */
+export function resolveFootStep(pos:{x:number;z:number}, velocity:{x:number;z:number}, dt:number, colliders:Collider[], hasInput=true):FootResolve {
+  dt=Number.isFinite(dt)?Math.max(0,Math.min(dt,.05)):0;
+  let x=pos.x,z=pos.z,vx=velocity.x,vz=velocity.z;
+  if(dt===0)return {x,z,vx,vz};
+  const dx=vx*dt,dz=vz*dt;
+  const canX=canWalk(x+dx,z,colliders),canZ=canWalk(x,z+dz,colliders);
+  if(canX)x+=dx;else vx=0;
+  if(canZ)z+=dz;else vz=0;
+  // Both axes blocked (corner/step): try micro-nudges along free diagonals, else clear motion.
+  if(!canX&&!canZ){
+    if(hasInput){
+      const nudges:[[number,number],[number,number],[number,number],[number,number]]=[[.12,0],[-.12,0],[0,.12],[0,-.12]];
+      let freed=false;
+      for(const [nx,nz] of nudges){
+        if(canWalk(pos.x+nx,pos.z+nz,colliders)){x=pos.x+nx;z=pos.z+nz;vx=0;vz=0;freed=true;break;}
+      }
+      if(!freed){vx=0;vz=0;x=pos.x;z=pos.z;}
+    }else {vx=0;vz=0;x=pos.x;z=pos.z;}
+  }
+  if(!hasInput){vx=0;vz=0;}
+  return {x,z,vx,vz};
 }

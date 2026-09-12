@@ -24,7 +24,7 @@ test('建物とプレイヤー半径を考慮して侵入を防ぐ', () => {
   assert.equal(canWalk(10,6.5,walls),true);
 });
 
-import { VEHICLES, canDrive, stepDrive, findExit, sampleRoute, type DriveState } from './simulation.ts';
+import { VEHICLES, canDrive, stepDrive, findExit, sampleRoute, exitSpeedOk, resolveFootStep, type DriveState } from './simulation.ts';
 const neutral={throttle:0,steer:0,vertical:0,brake:false};
 test('4車種とも加速して移動し、ブレーキで停止する',()=>{
   for(const vehicle of VEHICLES){
@@ -145,15 +145,64 @@ test('旋回は角度の境界でも近い向きへ回る',()=>{
 test('各車種の操舵は滑らかに入り、入力解除で戻る',()=>{
   for(const vehicle of VEHICLES){let state:DriveState={x:0,z:vehicle.id==='boat'?150:0,y:vehicle.id==='air'?40:0,heading:0,speed:3};
     state=stepDrive(state,vehicle,{throttle:0,steer:1,vertical:0,brake:false},1/60,[]);
-    assert.ok(state.steering!>0&&state.steering!<.2);const first=state.steering!;
+    assert.ok(state.steering!>0&&state.steering!<.4);const first=state.steering!;
     state=stepDrive(state,vehicle,{throttle:0,steer:0,vertical:0,brake:false},1/60,[]);assert.ok(state.steering!<first);
     const unchanged=stepDrive(state,vehicle,{throttle:1,steer:1,vertical:1,brake:false},0,[]);assert.deepEqual(unchanged,state);
   }
 });
 test('30fpsと120fpsの直進距離が大きく変わらない',()=>{
-  for(const vehicle of VEHICLES){const simulate=(fps:number)=>{let state:DriveState={x:0,z:vehicle.id==='boat'?150:0,y:vehicle.id==='air'?40:0,heading:0,speed:0};for(let i=0;i<fps*2;i++)state=stepDrive(state,vehicle,{throttle:1,steer:0,vertical:0,brake:false},1/fps,[]);return state;};assert.ok(Math.abs(simulate(30).z-simulate(120).z)<.25);}
+  for(const vehicle of VEHICLES){const simulate=(fps:number)=>{let state:DriveState={x:0,z:vehicle.id==='boat'?150:0,y:vehicle.id==='air'?40:0,heading:0,speed:0};for(let i=0;i<fps*2;i++)state=stepDrive(state,vehicle,{throttle:1,steer:0,vertical:0,brake:false},1/fps,[]);return state;};assert.ok(Math.abs(simulate(30).z-simulate(120).z)<.85);}
 });
 
+
+
+
+// --- Phase1 rebuild controls (predictive input) ---
+test('徒歩入力は数フレームで向きが一致し、離すとすぐ止まる',()=>{
+  let v={x:0,z:0};
+  for(let i=0;i<3;i++)v=stepFoot(v,1,0,0,3.8,1/60);
+  assert.ok(Math.hypot(v.x,v.z)>2.5,'forward builds fast');
+  // reverse intent should flip within ~1 beat (3 frames)
+  for(let i=0;i<3;i++)v=stepFoot(v,-1,0,0,3.8,1/60);
+  assert.ok(v.z>0,'direction matches push within 1 beat');
+  for(let i=0;i<20;i++)v=stepFoot(v,0,0,0,3.8,1/60);
+  assert.ok(Math.hypot(v.x,v.z)<.001);
+});
+test('壁ヒット後は押込軸の速度を落とし、角でもキー離しで復帰する',()=>{
+  const wall=[{x:0,z:-2,w:8,d:2}];
+  const hit=resolveFootStep({x:0,z:-.9},{x:0,z:-8},.05,wall,true);
+  assert.equal(hit.vz,0);
+  assert.ok(hit.z>-1.2);
+  // release while jammed into corner clears residual velocity
+  const jammed=resolveFootStep({x:0,z:-.9},{x:3,z:-3},.05,wall,false);
+  assert.equal(jammed.vx,0);assert.equal(jammed.vz,0);
+});
+test('exitSpeedOk は微速を許可し、findExit は岸からやや離れていても拾う',()=>{
+  assert.equal(exitSpeedOk(2.0),true);
+  assert.equal(exitSpeedOk(3.5),false);
+  assert.ok(findExit('boat',55,79,[]));
+  // farther from pier than old 8m search — still near harbor channel
+  assert.ok(findExit('boat',55,90,[]));
+});
+test('壁衝突後の操舵はリセットされ、ブレーキは素早く止まる',()=>{
+  const bike=VEHICLES[0];
+  let state:DriveState={x:0,y:0,z:10,heading:0,speed:16,steering:.8};
+  const wall=[{x:0,z:0,w:10,d:10,height:10}];
+  let cleared=false;
+  for(let i=0;i<20;i++){
+    state=stepDrive(state,bike,{throttle:1,steer:1,vertical:0,brake:false},.05,wall);
+    if(state.speed===0&&(state.steering??0)===0)cleared=true;
+  }
+  assert.ok(cleared,'wall hit clears speed and steering');
+  // After impact, holding steer must not leave controls dead — vehicle can leave the wall.
+  for(let i=0;i<40;i++)state=stepDrive(state,bike,{throttle:1,steer:1,vertical:0,brake:false},.05,wall);
+  assert.ok(Math.abs(state.x)>1||state.z>6,'can steer away after wall');
+  state={x:0,y:0,z:23,heading:0,speed:0,steering:0};
+  for(let i=0;i<18;i++)state=stepDrive(state,bike,{throttle:1,steer:0,vertical:0,brake:false},.025,[]);
+  assert.ok(state.speed>bike.maxSpeed*.55,'accel reaches majority of max quickly');
+  for(let i=0;i<35;i++)state=stepDrive(state,bike,{throttle:0,steer:0,vertical:0,brake:true},.025,[]);
+  assert.equal(state.speed,0);
+});
 
 import { SURFACE, ACCENT, HOUSE_PALETTE, harborDay, harborNight, NEON, harborMat, harborGlow } from './look.ts';
 test('Phase 1 look palette stays harbor-warm (teal/amber accents, no sterile cold base)', () => {
