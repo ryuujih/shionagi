@@ -3,6 +3,7 @@ import { MISSIONS, advanceCampaign, freshCampaign, parseCampaign, inMissionRange
 import { groundHeight } from './geography.ts';
 import { smoothAngle, type Collider } from './simulation.ts';
 import { buildRenAvatar, buildStationVisual } from './characters-look.ts';
+import { harborCachedMat } from './look.ts';
 import { wantArmed, stepAimBlend, sampleArmingPose } from './avatar-arming.ts';
 export type CombatFeedback='emp'|'damage'|'dodge'|'lock'|'reload';
 export type StorySnapshot={enabled:boolean;stage:number;choice:EndingChoice|null;hp:number;ammo:number;reloading:boolean;scan:number;kills:number;near:boolean;dialogue:boolean;down:boolean;locked:boolean;feedback:CombatFeedback|null;message:string;saveAvailable:boolean};
@@ -20,7 +21,7 @@ export class StoryWorld {
   readonly avatar=new THREE.Group();private legs:THREE.Group[]=[];private arms:THREE.Group[]=[];private stride=0;private gait=0;private weapon=new THREE.Group();
   private boxGeometry=new THREE.BoxGeometry(1,1,1);
   private aimBlend=0;private weaponRecoil=0;
-  private materials=new Map<string,THREE.MeshStandardMaterial>();
+  private materials=new Map<string,THREE.Material>();
   private cachedSave:CampaignProgress|null=null;
   constructor(private scene:THREE.Scene,private colliders:Collider[]){
     try{this.cachedSave=parseCampaign(localStorage.getItem('shionagi.campaign.v1'));}catch{this.saveAvailable=false;}
@@ -29,7 +30,7 @@ export class StoryWorld {
     for(let i=0;i<18;i++){const mesh=new THREE.Mesh(new THREE.SphereGeometry(.14,8,6),this.mat('#ff756f',true));mesh.visible=false;this.scene.add(mesh);this.bolts.push({mesh,velocity:new THREE.Vector3(),life:0});}
     for(let i=0;i<12;i++){const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]);const line=new THREE.Line(g,new THREE.LineBasicMaterial({color:'#84fff2',transparent:true,opacity:.9}));line.visible=false;this.scene.add(line);this.traces.push({line,life:0});}
   }
-  private mat(color:string,glow=false){const key=color+glow;let m=this.materials.get(key);if(!m){m=new THREE.MeshStandardMaterial({color,roughness:.5,metalness:.25,emissive:glow?color:'#000000',emissiveIntensity:glow?2:0});this.materials.set(key,m);}return m;}
+  private mat(color:string,glow=false){return harborCachedMat(this.materials as Map<string,THREE.Material>,color,glow,glow?{roughness:.48,metalness:.05,glowStrength:1.4}:{roughness:.82,metalness:.04}) as THREE.MeshStandardMaterial;}
   private box(parent:THREE.Object3D,w:number,h:number,d:number,x:number,y:number,z:number,color:string,glow=false){const mesh=new THREE.Mesh(this.boxGeometry,this.mat(color,glow));mesh.scale.set(w,h,d);mesh.position.set(x,y,z);parent.add(mesh);return mesh;}
   private makeAvatar(){const g=this.avatar;
     buildRenAvatar(g,(p,w,h,d,x,y,z,c,glow)=>this.box(p,w,h,d,x,y,z,c,glow),(c,glow)=>this.mat(c,glow),this.legs,this.arms,this.weapon);
