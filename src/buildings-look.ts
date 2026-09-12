@@ -73,3 +73,30 @@ export function addHarborPointLight(
   scene.add(light);
   return light;
 }
+
+/** City-life pier warehouses + water-edge PointLights + dark-glass tower bands. */
+export function decorateHarborPierExtras(
+  scene: THREE.Scene,
+  box: (parent: THREE.Object3D, w: number, h: number, d: number, x: number, y: number, z: number, color: string, glow?: boolean) => unknown,
+  groundHeight: (z: number, x?: number) => number,
+  neonPair: (i: number) => string,
+) {
+  for (let i = 0; i < 7; i++) {
+    const x = -133 + (i % 2) * 17, z = -65 - i * 15, h = 28 + (i % 3) * 12, y = groundHeight(z);
+    box(scene, 10, h, 12, x, y + h / 2, z, SURFACE.ground);
+    box(scene, .16, h + 5, .16, x + 5, y + h / 2, z + 6, neonPair(i), true);
+    for (let f = 0; f < h / 3; f++) {
+      box(scene, 8, .7, .07, x, y + 2 + f * 3, z + 6.05, SURFACE.baseDeep);
+      box(scene, 7.2, .06, .05, x, y + 2.4 + f * 3, z + 6.12, neonPair(i + f), true);
+    }
+    addHarborPointLight(scene, x, y + h * .6, z + 8, neonPair(i), 22, 16);
+  }
+  for (const [wx, wz] of [[-48, 18], [-28, 16], [32, 17]] as const) {
+    const wy = groundHeight(wz);
+    buildWarehouseSilhouette((w, h, d, x, y, z, c, glow) => { box(scene, w, h, d, x, y, z, c, !!glow); }, wx, wy, wz, { w: 9, d: 7, h: 5.5 });
+    addHarborPointLight(scene, wx, wy + 6.2, wz + 4.2, ACCENT.amber, 28, 18);
+  }
+  for (const [x, z, color] of [[-40, 34, ACCENT.amber], [12, 36, ACCENT.teal], [48, 34, ACCENT.amber], [-8, 38, ACCENT.teal]] as const) {
+    addHarborPointLight(scene, x, 4.5 + groundHeight(z), z, color, 34, 20);
+  }
+}
