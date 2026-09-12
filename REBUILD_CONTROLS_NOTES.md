@@ -62,3 +62,9 @@ Branch: `rebuild/controls` (from `main` @ 44337aa). Does **not** commit to main.
 - [ ] Mission objective chip / heading arrow still tracks facing
 - [ ] Short-cycle choice confirm + homecoming branches unchanged
 - [ ] Harbor look / HUD visuals unchanged
+
+
+## Packaging note
+`src/world-impl.ts` is a thin re-export. The full predictive control loop is stored as
+`_upload/world-impl.ts.part00`…`part09` and assembled into `src/world-impl.generated.ts`
+by `npm prepare` / `pretest` / `prebuild` / `predev` (`scripts/decode-world-impl.mjs`).
