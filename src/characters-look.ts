@@ -3,6 +3,7 @@
  * Visual only; no combat/move/simulation logic.
  */
 import * as THREE from 'three';
+import { sampleArmingPose } from './avatar-arming.ts';
 
 type BoxFn = (
   parent: THREE.Object3D,
@@ -40,7 +41,11 @@ export function buildRenAvatar(
     box(arm,.16,.28,.18,0,-.14,0,'#3a6570'); box(arm,.14,.26,.16,0,-.4,-.05,'#2f5560'); box(arm,.15,.11,.16,0,-.56,-.05,'#1e3440');
     g.add(arm); arms.push(arm);
   }
-  box(weapon,.18,.2,.7,.35,1.04,-.48,'#718c9c'); box(weapon,.12,.1,.11,.35,1.06,-.9,'#8bfff0',true);
+  // Grip at origin, barrel along local -Z; initialize holstered before any update.
+  box(weapon,.18,.2,.7,0,0,-.15,'#718c9c'); box(weapon,.12,.1,.11,0,.02,-.57,'#8bfff0',true);
+  const holster = sampleArmingPose(0);
+  weapon.position.set(holster.x,holster.y,holster.z);
+  weapon.rotation.x = holster.pitch;
   g.add(weapon);
 }
 
