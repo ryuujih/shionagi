@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { groundHeight, smoothAngle, sampleRoute, VEHICLES, type VehicleKind, type RoutePoint, type Collider } from './simulation.ts';
 import { SURFACE, ACCENT, NEON, harborCachedMat } from './look.ts';
+import { buildCrowdPerson, crowdKindForIndex } from './characters-look.ts';
+import { decorateHarborPierExtras } from './buildings-look.ts';
 
 type MovingActor={model:THREE.Group; route:RoutePoint[]; progress:number; speed:number; category:'person'|'robot'|'traffic'|'air'|'ship'; limbs:THREE.Object3D[]};
 export class CityLife {
@@ -62,10 +64,10 @@ export class CityLife {
     for(const wheel of model.userData.wheels??[])wheel.rotateY(-speed*dt/.36);
     for(const rotor of model.userData.rotors??[])rotor.rotation.y+=dt*(25+Math.abs(speed));
   }
-  private person(index:number,robot:boolean){const g=new THREE.Group();const color=robot?['#b8c9c0','#a89078','#e6bb73'][index%3]:['#5a6e68','#2d7a78','#8a5a4a','#bb8055','#486878'][index%5];const limbs:THREE.Object3D[]=[];
-    if(robot){this.box(g,.65,.65,.5,0,.95,0,color);this.box(g,.52,.4,.45,0,1.52,0,'#263a50');this.box(g,.37,.09,.04,0,1.53,-.24,ACCENT.teal,true);this.box(g,.12,.4,.12,0,1.9,0,color);this.sphere(g,0,2.12,0,.08,.08,.08,ACCENT.amber,true);this.box(g,.37,.32,.35,0,.87,-.4,'#bc9870');}
-    else{this.box(g,.48,.7,.33,0,1.1,0,color);this.box(g,.4,.24,.32,0,.71,0,'#243247');this.sphere(g,0,1.69,0,.22,.25,.21,'#b99985');this.sphere(g,0,1.82,.025,.24,.15,.23,'#29303e');if(index%3===0)this.box(g,.41,.09,.06,0,1.72,-.21,ACCENT.teal,true);this.box(g,.3,.4,.19,0,1.12,.27,'#253347');this.box(g,.3,.045,.05,0,1.25,-.18,index%2?ACCENT.amber:ACCENT.teal,true);}
-    for(const side of [-1,1]){const leg=new THREE.Group();leg.position.set(side*.17,.68,0);this.box(leg,.17,.57,.18,0,-.28,0,'#283548');this.box(leg,.2,.13,.34,0,-.58,-.06,'#1a2431');g.add(leg);limbs.push(leg);const arm=new THREE.Group();arm.position.set(side*(robot?.43:.33),1.35,0);this.box(arm,.14,.62,.18,0,-.29,0,color);g.add(arm);limbs.push(arm);}
+  private person(index:number,robot:boolean){const g=new THREE.Group();
+    const kind=crowdKindForIndex(index);
+    const limbs=buildCrowdPerson(kind,g,(p,w,h,d,x,y,z,c,glow)=>this.box(p,w,h,d,x,y,z,c,glow),robot);
+    g.userData.crowdKind=kind;
     return {model:g,limbs};
   }
   private buildActors(){
@@ -100,20 +102,15 @@ export class CityLife {
       this.label(g,['網修理','夜市 2089','渡し船','浜茶屋','汐凪無線'][i%5],['NET MEND','NIGHT MARKET','FERRY DOCK','HAMA TEA','PORT RADIO'][i%5],0,0,0,4.7,color);
       this.halo(g,0,0,.1,7,color);this.scene.add(g);this.holograms.push(g);
       this.box(this.scene,.12,5,.12,x-2.5,y-1,z+6,color,true);
-      // 地面の淡い光は夜のネオンアクセント（teal / amber）に限る。
       const pool=new THREE.Mesh(new THREE.PlaneGeometry(7,5),new THREE.MeshBasicMaterial({map:this.haloTexture,color,transparent:true,opacity:.18,blending:THREE.AdditiveBlending,depthWrite:false}));pool.rotation.x=-Math.PI/2;pool.position.set(x,groundHeight(z+10)+.15,z+10);this.scene.add(pool);
     }
     for(const [x,z,color] of [[-15,19,ACCENT.amber],[17,19,ACCENT.teal],[0,-53,ACCENT.amber]] as const){const light=new THREE.PointLight(color,36,22,1.6);light.position.set(x,5+groundHeight(z),z);this.scene.add(light);}
-    // 海の町の目印として、巨大な魚の立体広告を港の上に浮かべる。
     const fish=new THREE.Group();fish.position.set(13,23,28);
     const holo=new THREE.MeshBasicMaterial({color:ACCENT.teal,wireframe:true,transparent:true,opacity:.42,depthWrite:false});const body=new THREE.Mesh(new THREE.SphereGeometry(1,16,10),holo);body.scale.set(5,1.7,1.5);fish.add(body);
     const tail=new THREE.Mesh(new THREE.ConeGeometry(2.4,3,3),holo);tail.rotation.z=-Math.PI/2;tail.position.x=-5.6;fish.add(tail);this.sphere(fish,3.1,.5,1,.18,.18,.18,ACCENT.amber,true);this.label(fish,'汐凪夜市','FRESH CATCH / WET DOCK',0,-3,0,9,ACCENT.teal);this.halo(fish,0,0,0,18,SURFACE.baseMid);this.scene.add(fish);fish.userData.fish=true;this.holograms.push(fish);
     const beam=new THREE.Mesh(new THREE.CylinderGeometry(6,.2,21,24,1,true),new THREE.MeshBasicMaterial({color:ACCENT.teal,transparent:true,opacity:.015,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));beam.position.set(13,10,28);this.scene.add(beam);
-    for(let i=0;i<7;i++){
-      const x=-133+(i%2)*17,z=-65-i*15,h=28+(i%3)*12,y=groundHeight(z);this.box(this.scene,10,h,12,x,y+h/2,z,SURFACE.ground);
-      this.box(this.scene,.16,h+5,.16,x+5,y+h/2,z+6,NEON.pair(i),true);for(let f=0;f<h/3;f++)for(let k=0;k<4;k++)this.box(this.scene,1.25,.65,.07,x-3.5+k*2.2,y+2+f*3,z+6.1,(f+k)%4?ACCENT.teal:ACCENT.amber,true);
-    }
     this.label(this.scene,'汐凪モビリティ','LAND / SEA / SKY · V',0,7.3,19,9,ACCENT.teal);
+    decorateHarborPierExtras(this.scene,(p,w,h,d,x,y,z,c,glow)=>this.box(p,w,h,d,x,y,z,c,glow),groundHeight,NEON.pair);
   }
   obstacles(kind:VehicleKind):Collider[]{
     const result:Collider[]=[];
@@ -127,7 +124,6 @@ export class CityLife {
       if(actor.category==='traffic'){
         const dx=player.x-current.x,dz=player.z-current.z;
         if(player.y-groundHeight(current.z,current.x)<4&&Math.hypot(dx,dz)<7&&dx*-Math.sin(current.heading)+dz*-Math.cos(current.heading)>0)speed=0;
-        // 前の車に追いついたら待つ。交差点での積極的な追い越しはしない。
         for(const other of this.actors){if(other===actor||other.category!=='traffic')continue;const ox=other.model.position.x-current.x,oz=other.model.position.z-current.z;if(Math.hypot(ox,oz)<5&&ox*-Math.sin(current.heading)+oz*-Math.cos(current.heading)>1)speed=0;}
       }
       actor.progress+=speed*dt;const p=sampleRoute(actor.route,actor.progress);const y=actor.category==='air'?32+(actor.speed-8)*4:actor.category==='ship'?Math.sin(time+actor.speed)*.12:groundHeight(p.z,p.x);
