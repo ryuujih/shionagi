@@ -3,6 +3,7 @@ import { MISSIONS, advanceCampaign, freshCampaign, parseCampaign, inMissionRange
 import { groundHeight } from './geography.ts';
 import { smoothAngle, type Collider } from './simulation.ts';
 import { buildRenAvatar, buildStationVisual } from './characters-look.ts';
+import { wantArmed, stepAimBlend, sampleArmingPose } from './avatar-arming.ts';
 export type CombatFeedback='emp'|'damage'|'dodge'|'lock'|'reload';
 export type StorySnapshot={enabled:boolean;stage:number;choice:EndingChoice|null;hp:number;ammo:number;reloading:boolean;scan:number;kills:number;near:boolean;dialogue:boolean;down:boolean;locked:boolean;feedback:CombatFeedback|null;message:string;saveAvailable:boolean};
 export const EMPTY_STORY:StorySnapshot={enabled:false,stage:0,choice:null,hp:100,ammo:12,reloading:false,scan:0,kills:0,near:false,dialogue:false,down:false,locked:false,feedback:null,message:'',saveAvailable:true};
@@ -18,6 +19,7 @@ export class StoryWorld {
   private message='';private messageUntil=0;private saveAvailable=true;private feedback:CombatFeedback|null=null;private feedbackUntil=0;
   readonly avatar=new THREE.Group();private legs:THREE.Group[]=[];private arms:THREE.Group[]=[];private stride=0;private gait=0;private weapon=new THREE.Group();
   private boxGeometry=new THREE.BoxGeometry(1,1,1);
+  private aimBlend=0;private weaponRecoil=0;
   private materials=new Map<string,THREE.MeshStandardMaterial>();
   private cachedSave:CampaignProgress|null=null;
   constructor(private scene:THREE.Scene,private colliders:Collider[]){
@@ -59,7 +61,7 @@ export class StoryWorld {
     // カメラから見えても、銃口の前が壁なら貫通させない。
     const path=end.clone().sub(muzzle),blocked=this.wallDistance(muzzle,path.clone().normalize());if(blocked<path.length()-.4){end.copy(muzzle).addScaledVector(path.normalize(),blocked);hit=null;}
     const trace=this.traces[this.traceIndex++%this.traces.length];const a=trace.line.geometry.attributes.position;a.setXYZ(0,muzzle.x,muzzle.y,muzzle.z);a.setXYZ(1,end.x,end.y,end.z);a.needsUpdate=true;trace.line.geometry.computeBoundingSphere();trace.line.visible=true;trace.life=.11;
-    this.weapon.position.z=.13;
+    if(this.aimBlend>.8)this.weaponRecoil=.13;
     if(hit){hit.hp--;this.cue('emp');if(hit.hp<=0){hit.model.visible=false;if(this.locked===hit)this.locked=null;const stopped=this.enemies.filter(e=>e.hp===0).length;this.message=`ドローン停止 ${stopped}/3`;this.messageUntil=this.clock+1.5;}else{this.message='EMP命中';this.messageUntil=this.clock+1.3;}}
     if(this.progress.stage===3&&this.enemies.every(e=>e.hp===0))this.finish();
   }
@@ -71,8 +73,14 @@ export class StoryWorld {
     this.avatar.visible=playing&&onFoot;this.avatar.position.set(pos.x,groundHeight(pos.z,pos.x)+Math.abs(Math.sin(this.stride))*.035*this.gait,pos.z);
     this.avatar.rotation.y=smoothAngle(this.avatar.rotation.y,heading,dt,12);
     this.legs.forEach((leg,i)=>leg.rotation.x=Math.sin(this.stride)*(i?-.58:.58)*this.gait);
-    this.arms.forEach((arm,i)=>arm.rotation.x=this.locked?-.7:Math.sin(this.stride)*(i?.36:-.36)*this.gait);
-    this.weapon.position.z*=Math.exp(-dt*20);
+    // Keep transitions running through dialogue, boarding, and disabled/explore states.
+    const armed=playing&&wantArmed({enabled:this.enabled,dialogue:this.dialogue,down:this.down,onFoot,stage:this.progress.stage,near:this.near(pos)});
+    this.aimBlend=stepAimBlend(this.aimBlend,armed,dt);
+    const pose=sampleArmingPose(this.aimBlend);
+    this.arms.forEach((arm,i)=>arm.rotation.x=pose.armPitch+Math.sin(this.stride)*(i?.36:-.36)*this.gait*(1-this.aimBlend));
+    this.weaponRecoil*=Math.exp(-dt*20);
+    this.weapon.position.set(pose.x,pose.y,pose.z+this.weaponRecoil*this.aimBlend);
+    this.weapon.rotation.set(pose.pitch,0,0);
     this.stations.forEach((g,i)=>g.visible=this.enabled&&i===this.progress.stage);this.marker.visible=this.enabled&&this.progress.stage<6;
     if(this.marker.visible){const m=MISSIONS[this.progress.stage];this.marker.position.set(m.x,groundHeight(m.z,m.x)+.12,m.z);this.marker.rotation.y+=dt*.8;}
     if(!active||!playing||this.down||this.dialogue)return;

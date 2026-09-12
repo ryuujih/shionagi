@@ -224,3 +224,43 @@ test('Phase 1 look palette stays harbor-warm (teal/amber accents, no sterile col
   assert.ok(g.emissiveIntensity > 0);
   g.dispose();
 });
+
+import { wantArmed, stepAimBlend, sampleArmingPose } from './avatar-arming.ts';
+test('avatar arming requires enabled stage 3, on foot, nearby, alive and outside dialogue',()=>{
+  const combat={enabled:true,dialogue:false,down:false,onFoot:true,stage:3,near:true};
+  assert.equal(wantArmed(combat),true);
+  for(const override of [{enabled:false},{dialogue:true},{down:true},{onFoot:false},{near:false},...[0,1,2,4,5,6].map(stage=>({stage}))]){
+    assert.equal(wantArmed({...combat,...override}),false,JSON.stringify(override));
+  }
+});
+test('draw and holster take 0.4 seconds with continuous reversible blends',()=>{
+  for(const fps of [30,60,120]){
+    let blend=0;
+    blend=stepAimBlend(blend,true,1/fps);
+    assert.ok(blend>0&&blend<1);
+    for(let i=1;i<fps*.4;i++)blend=stepAimBlend(blend,true,1/fps);
+    assert.ok(blend>1-1e-12);
+    blend=stepAimBlend(blend,false,1/fps);
+    assert.ok(blend>0&&blend<1);
+    for(let i=1;i<fps*.4;i++)blend=stepAimBlend(blend,false,1/fps);
+    assert.ok(blend<1e-12);
+  }
+  assert.equal(stepAimBlend(.5,true,0),.5);
+  assert.equal(stepAimBlend(.5,false,-1),.5);
+  assert.equal(stepAimBlend(.5,false,.1),.25);
+  assert.equal(stepAimBlend(.25,true,.1),.5);
+});
+test('holster is at left hip with muzzle down/back and arms lowered',()=>{
+  const holster=sampleArmingPose(0),aim=sampleArmingPose(1),middle=sampleArmingPose(.5);
+  assert.ok(holster.x<-.4);
+  assert.equal(holster.y,1);
+  // Rotating local (0,0,-1) around X yields (0,sin(pitch),-cos(pitch)).
+  assert.ok(Math.sin(holster.pitch)<0,'muzzle down');
+  assert.ok(-Math.cos(holster.pitch)>0,'muzzle back, never forward');
+  assert.equal(holster.armPitch + 0, 0);
+  assert.equal(aim.pitch,0);
+  assert.ok(aim.armPitch<0,'arms raise forward along avatar -Z (neg X rot)');
+  assert.ok(middle.x>holster.x&&middle.x<aim.x);
+  assert.ok(middle.pitch>holster.pitch&&middle.pitch<aim.pitch);
+  assert.equal(middle.armPitch,aim.armPitch/2);
+});
