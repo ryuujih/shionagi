@@ -30,7 +30,8 @@ export function MissionUI(p:Props){
   const s=p.story;if(!s.enabled)return null;const mission=MISSIONS[s.stage];
   const distance=mission?Math.round(Math.hypot(mission.x-p.x,mission.z-p.z)):0;
   const bearing=mission?Math.atan2(mission.x-p.x,-(mission.z-p.z))+p.heading:0;
-  const combat=!!mission&&mission.kind==='combat'&&p.active&&p.onFoot&&!s.dialogue&&!s.down;
+  // Density follows published combatMode (same gate as EMP/camera) — not a parallel stage check.
+  const combat=s.combatMode;
   const talking=s.dialogue;
   const dim=talking?'opacity-25 pointer-events-none':'';
   const [pendingChoice,setPendingChoice]=useState<EndingChoice|null>(null);
