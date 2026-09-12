@@ -1,6 +1,6 @@
 # Phase 3 — code silhouettes + harbor materials
 
-Branch `rebuild/look-silhouettes` · base `rebuild/unarmed-equip` @ a04df28
+Branch `rebuild/look-silhouettes` · tip `956beb0` · base `rebuild/unarmed-equip` @ a04df28
 
 Visual-only rebuild: procedural box silhouettes and look.ts materials. No glTF. Does not touch `_upload`, simulation/phase1 controls, campaign progression, HUD wiring, or arming blend math.
 
@@ -14,6 +14,6 @@ Visual-only rebuild: procedural box silhouettes and look.ts materials. No glTF. 
 
 ## Verification
 
-- `npm test`: **32/32 pass**
+- `npm test`: **32/32 pass** (local /workspace/shionagi)
 - `npm run build`: **pass** (Vite large-chunk warning only)
 - Manual browser visual QA pending for gates 1–4 camera reads.
