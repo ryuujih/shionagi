@@ -53,7 +53,7 @@ export class WorldExpansion {
     buildMarketStallSilhouette((w,h,d,px,py,pz,c,glow)=>this.box(w,h,d,px,py,pz,c,!!glow),x,y,z,ACCENT.amber);
     this.sign(name,'FRESH / LOCAL',x,y+2.35,z+1.3,3.8,ACCENT.amber);
     for(let k=0;k<5;k++){this.box(.65,.15,.85,x-1.7+k*.83,y+1,z,SURFACE.wetGray);this.sphere(x-1.7+k*.83,y+1.13,z,.26,.08,.1,'#b6cecf');}
-    this.lantern(x+2,y+2.4,z+1.2,ACCENT.amber);for(let k=0;k<9;k++)this.steamBases.push(x+.15*Math.sin(k),y+1.1+k*.15,z-.5);this.colliders.push({x,z,w:5,d:2.3,height:1);}
+    this.lantern(x+2,y+2.4,z+1.2,ACCENT.amber);for(let k=0;k<9;k++)this.steamBases.push(x+.15*Math.sin(k),y+1.1+k*.15,z-.5);this.colliders.push({x,z,w:5,d:2.3,height:1});
   }
   private eastTown(){
     this.house(128,0,18,21,11,'#617776','浜の修理工房');this.house(128,-56,20,20,14,'#776c7b','東浜共同住宅');
