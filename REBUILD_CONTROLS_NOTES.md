@@ -33,8 +33,10 @@ Branch: `rebuild/controls` (from `main` @ 44337aa). Does **not** commit to main.
 
 ## Files touched
 - `src/simulation.ts` — predictive foot/drive, `resolveFootStep`, `exitSpeedOk`, wider `findExit`
-- `src/world-impl.ts` — walk resolution, exit/board camera sync, smoothed camera, lock-off freeze
+- `src/world-impl.ts` — thin re-export; full loop via generated patch apply
 - `src/world.test.ts` — Phase 1 control regression tests
+- `_upload/controls.patch.gz.b64.p00`…`p03` — gzipped unified diff vs main world-impl
+- `scripts/decode-world-impl.mjs` — assemble on prepare/pretest/prebuild/predev
 - `REBUILD_CONTROLS_NOTES.md` — this file
 
 ## Verification
@@ -63,8 +65,8 @@ Branch: `rebuild/controls` (from `main` @ 44337aa). Does **not** commit to main.
 - [ ] Short-cycle choice confirm + homecoming branches unchanged
 - [ ] Harbor look / HUD visuals unchanged
 
-
 ## Packaging note
-`src/world-impl.ts` is a thin re-export. The full predictive control loop is stored as
-`_upload/world-impl.ts.part00`…`part09` and assembled into `src/world-impl.generated.ts`
-by `npm prepare` / `pretest` / `prebuild` / `predev` (`scripts/decode-world-impl.mjs`).
+`src/world-impl.ts` is a thin re-export. Full controls loop is rebuilt at
+`npm prepare` / `pretest` / `prebuild` / `predev` by `scripts/decode-world-impl.mjs`:
+fetch `main`'s `src/world-impl.ts`, apply `_upload/controls.patch.gz.b64.p00`…`p03`
+(gunzip + `patch`), write `src/world-impl.generated.ts` (gitignored).
