@@ -31,6 +31,26 @@ const baseText = execFileSync(
 writeFileSync(basePath, baseText);
 writeFileSync(patchPath, patchText);
 execFileSync('patch', ['-o', outPath, basePath, patchPath], { stdio: 'inherit' });
-const text = readFileSync(outPath, 'utf8');
+let text = readFileSync(outPath, 'utf8');
+
+// Phase 4 combat-mode: ease foot camera with story.aimBlend (same gate as EMP/HUD).
+// Applied here so _upload/controls patches stay untouched.
+const importNeedle = "import { StoryWorld, type StorySnapshot } from './story-world.ts';";
+const importCombat = "import { sampleCombatCamera } from './avatar-arming.ts';";
+const camOld =
+  'const desired=this.pos.clone().addScaledVector(forward,-4.8).add(new THREE.Vector3(Math.cos(this.yaw)*.7,.45,-Math.sin(this.yaw)*.7));';
+const camNew =
+  'const camRig=sampleCombatCamera(this.story.aimBlend);const desired=this.pos.clone().addScaledVector(forward,-camRig.back).add(new THREE.Vector3(Math.cos(this.yaw)*camRig.side,camRig.lift,-Math.sin(this.yaw)*camRig.side));';
+if (!text.includes(importNeedle) || !text.includes(camOld)) {
+  console.error('combat-mode camera anchors missing in patched world-impl');
+  process.exit(1);
+}
+if (!text.includes(importCombat)) {
+  text = text.replace(importNeedle, `${importNeedle}\n${importCombat}`);
+}
+if (!text.includes('sampleCombatCamera(this.story.aimBlend)')) {
+  text = text.replace(camOld, camNew);
+}
+
 writeFileSync(out, text);
-console.log('patched', out, text.length, 'bytes from', patchChunks.length, 'chunks');
+console.log('patched', out, text.length, 'bytes from', patchChunks.length, 'chunks (+combat camera)');
